@@ -14,7 +14,12 @@ const UserSchema = mongoose.Schema({
     password: {
         type: String,
         required: true
-    }
+    },
+    token: {
+        type: String,
+        default: ''
+    },
+    isAuth: Boolean,
 });
 
 module.exports = mongoose.model('User', UserSchema);

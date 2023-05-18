@@ -22,8 +22,6 @@ routes.post('/signup',
         }).withMessage('Username must be alphanumeric.'),
     signupController.postSignup);
 
-routes.post('/',
-    body('email').isEmail().withMessage('Invalid email'),
-    body('password').notEmpty().withMessage('Password is required'), signupController.postSignin)
+
 
 module.exports = routes;
