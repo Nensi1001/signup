@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const { validationResult } = require('express-validator');
 const Otp = require('../models/otp');
 const nodemailer = require('nodemailer');
+const mongoose = require('mongoose');
 
 require('dotenv').config();
 
@@ -20,6 +21,15 @@ const secureOtp = async (otp, res) => {
     try {
         const otpHash = bcrypt.hash(otp, 10);
         return otpHash;
+    }
+    catch (err) {
+        res.status(400).json(err.message);
+    }
+}
+const securePassword = async (password, res) => {
+    try {
+        const passwordHash = bcrypt.hash(password, 10);
+        return passwordHash;
     }
     catch (err) {
         res.status(400).json(err.message);
@@ -44,6 +54,39 @@ const sendotp = async (email, otp,res) => {
             to: email,
             subject: 'For Authentication',
             html: `<p>Enter <b>${otp}</b> to verify email </p>`
+        }
+        transporter.sendMail(mailOptions, function (err, info) {
+            if (err) {
+                console.log(err);
+            }
+            else {
+                console.log("Mail has been sent:- ", info.response);
+            }
+        })
+    }
+    catch (err) {
+        res.status(400).send({ success: false, msg: err.message });
+    }
+}
+
+const sentresetpassword = async (name, email, id) => {
+    try {
+        const transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false,
+            requireTLS: true,
+            auth: {
+                user: process.env.EMAIL,
+                pass: process.env.PASSWORD
+            }
+
+        })
+        const mailOptions = {
+            from: process.env.EMAIL,
+            to: email,
+            subject: 'For Reset Password',
+            html: '<p>Hi ' + name + ',Please copy the link and <a href="http://localhost:8000/reset-password?id=' + id + '"> reset your password </a></p>'
         }
         transporter.sendMail(mailOptions, function (err, info) {
             if (err) {
@@ -108,6 +151,49 @@ const postSignin = async (req, res) => {
     }
 };
 
+
+const forgetPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const userData = await User.findOne({ email: email });
+        if (userData) {
+            const userId = userData._id.toString(); 
+            sentresetpassword(userData.username, userData.email, userId)
+            res.status(200).json({ success: true, msg: "Please check your mail" });
+        }
+        else {
+            res.status(404).json({ success: true, msg: "This email does not exists" });
+        }
+    }
+    catch (err) {
+        res.status(400).json({ success: false, msg: err.message }); 
+    }
+}
+
+const updatePassword = async (req, res) => {
+    try {
+        const { id, password } = req.body;
+        if (!id || !password) {
+            return res.status(400).json({ success: false, msg: "User ID and password are required" });
+        }
+        const userId = new mongoose.Types.ObjectId(id);
+        const data = await User.findOne({ _id: userId });
+        if (data) {
+            const newPassword = await securePassword(password);
+            const userData = await User.findByIdAndUpdate({ _id: userId }, { $set: { password: newPassword } })
+            res.status(200).send({ success: true, msg: "Your password has been updated" });
+        }
+        else {
+            res.status(404).send({ success: true, msg: "User Id not found" });
+        }
+    }
+    catch (err) {
+        res.status(400).send(err.message);
+    }
+}
+
 module.exports = {
-    postSignin
+    postSignin,
+    forgetPassword,
+    updatePassword
 }
